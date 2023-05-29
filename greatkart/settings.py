@@ -65,6 +65,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'greatkartapp.context_processors.menu_links',
+                'greatkartapp.context_processors.counter',
             ],
         },
     },

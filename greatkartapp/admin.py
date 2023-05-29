@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import category_db, Account,product_db,Cart,cart_item
+from .models import category_db, Account,product_db,Cart,cart_item,Variation
 
 
 # Register your models here.
@@ -36,7 +36,23 @@ class ProductAdmin(admin.ModelAdmin):
 admin.site.register(product_db,ProductAdmin)
 
 
+class CartAdmin(admin.ModelAdmin):
+    list_display = ('cart_id','date_added')
 
 
-admin.site.register(Cart)
-admin.site.register(cart_item)
+admin.site.register(Cart,CartAdmin)
+
+
+
+class CartItemAdmin(admin.ModelAdmin):
+    list_display = ('product','cart','quantity','is_active')
+
+admin.site.register(cart_item,CartItemAdmin)
+
+
+class VariationAdmin(admin.ModelAdmin):
+    list_display = ('product', 'variation_category', 'variation_value', 'is_active')
+    list_editable = ('is_active',)
+    list_filter = ('product', 'variation_category', 'variation_value', 'is_active')
+
+admin.site.register(Variation,VariationAdmin)

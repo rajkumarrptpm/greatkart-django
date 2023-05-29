@@ -3,6 +3,7 @@ from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.urls import reverse
 
 
+
 # Create your models here.
 class category_db(models.Model):
     category_name = models.CharField(max_length=100, unique=True)
@@ -15,7 +16,7 @@ class category_db(models.Model):
         verbose_name_plural = 'categories'
 
     def get_url(self):
-        return reverse('products_by_category',args=[self.slug])
+        return reverse('products_by_category', args=[self.slug])
 
     def __str__(self):
         return self.category_name
@@ -87,35 +88,32 @@ class Account(AbstractUser):
         return True
 
 
-
 # Product database
 class product_db(models.Model):
-    product_name = models.CharField(max_length=200,unique=True)
-    slug = models.SlugField(max_length=200,unique=True)
-    Description = models.TextField(max_length=500,blank=True)
+    product_name = models.CharField(max_length=200, unique=True)
+    slug = models.SlugField(max_length=200, unique=True)
+    Description = models.TextField(max_length=500, blank=True)
     price = models.IntegerField()
     image = models.ImageField(upload_to='photos/products')
     stock = models.IntegerField()
     is_available = models.BooleanField(default=True)
-    category = models.ForeignKey(category_db,on_delete=models.CASCADE)
+    category = models.ForeignKey(category_db, on_delete=models.CASCADE)
     created_date = models.DateTimeField(auto_now_add=True)
     updated_date = models.DateTimeField(auto_now=True)
 
     class Meta:
-         verbose_name = 'Product'
-         verbose_name_plural = 'Products'
-
+        verbose_name = 'Product'
+        verbose_name_plural = 'Products'
 
     def get_url(self):
-        return reverse('product_details',args=[self.category.slug,self.slug])
-
+        return reverse('product_details', args=[self.category.slug, self.slug])
 
     def __str__(self):
         return self.product_name
 
 
 class Cart(models.Model):
-    cart_id = models.CharField(max_length=250,blank=True)
+    cart_id = models.CharField(max_length=250, blank=True)
     date_added = models.DateField(auto_now_add=True)
 
     def __str__(self):
@@ -123,16 +121,52 @@ class Cart(models.Model):
 
 
 
-class cart_item(models.Model):
 
-    product = models.ForeignKey(product_db,on_delete=models.CASCADE)
-    cart = models.ForeignKey(Cart,on_delete=models.CASCADE)
+class VariationManager(models.Manager):
+    def colors(self):
+        return super(VariationManager,self).filter(variation_category='color',is_active=True)
+
+    def sizes(self):
+        return super(VariationManager,self).filter(variation_category='size',is_active=True)
+
+variation_category_choice=(
+    ('color','color'),
+    ('size','size'),
+
+)
+
+
+class Variation(models.Model):
+    product=models.ForeignKey(product_db,on_delete=models.CASCADE)
+    variation_category=models.CharField(max_length=100,choices=variation_category_choice)
+    variation_value=models.CharField(max_length=100)
+    is_active = models.BooleanField(default=True)
+    created_date=models.DateTimeField(auto_now=True)
+
+
+    objects=VariationManager()
+
+
+    class Meta:
+        verbose_name = 'variation'
+        verbose_name_plural = 'variations'
+
+    def __str__(self):
+        return self.variation_value
+
+
+class cart_item(models.Model):
+    product = models.ForeignKey(product_db, on_delete=models.CASCADE)
+    variations = models.ManyToManyField(Variation,blank=True)
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE)
     quantity = models.IntegerField()
     is_active = models.BooleanField(default=True)
 
-
     def sub_total(self):
-        return self.product.price*self.quantity
+        return self.product.price * self.quantity
 
-    def __str__(self):
+    def __unicode__(self):
         return self.product
+
+
+
