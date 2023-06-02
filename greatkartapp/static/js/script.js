@@ -44,6 +44,10 @@ $(document).ready(function() {
         }
     });
 
+    setTimeout(function(){
+        $('#message').fadeOut('slow')
+    }, 2000);
+
 
 
 	//////////////////////// Bootstrap tooltip
@@ -57,4 +61,5 @@ $(document).ready(function() {
     
 }); 
 // jquery end
+
 

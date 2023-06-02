@@ -9,7 +9,7 @@
     <title>Title</title>
 </head>
 <body >
-<section class="section-content padding-y bg">
+<section class="section-content padding-y bg" style="min-height:75vh">
 	<div class="container">
 		<!-- ============================ COMPONENT 1 ================================= -->
 		{% if not cart_items %}
@@ -81,7 +81,7 @@
 										<td>
 											<div class="price-wrap">
 												<var class="price">${{ items.sub_total }}</var>
-												<small class="text-muted"> ${{ items.product.price }} each </small>
+												<small class="text-muted">${{ items.product.price }} each </small>
 											</div> <!-- price-wrap .// -->
 										</td>
 										<td class="text-right">
