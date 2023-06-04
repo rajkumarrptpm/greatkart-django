@@ -21,14 +21,10 @@ urlpatterns=[
     path('activate/<uidb64>/<token>', views.activate, name="activate"),
 
 
+
     path('forgotPassword/', views.forgotPassword, name="forgotPassword"),
     path('resetpassword/', views.resetpassword, name="resetpassword"),
     path('resetpassword_validate/<uidb64>/<token>', views.resetpassword_validate, name="resetpassword_validate"),
-
-
-
-
-
-
+    path('checkout/', views.checkout, name="checkout"),
 
 ]

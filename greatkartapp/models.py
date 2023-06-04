@@ -158,9 +158,10 @@ class Variation(models.Model):
 
 
 class cart_item(models.Model):
+    user = models.ForeignKey(Account,on_delete=models.CASCADE,null=True)
     product = models.ForeignKey(product_db, on_delete=models.CASCADE)
     variations = models.ManyToManyField(Variation,blank=True)
-    cart = models.ForeignKey(Cart, on_delete=models.CASCADE)
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, null=True)
     quantity = models.IntegerField()
     is_active = models.BooleanField(default=True)
 

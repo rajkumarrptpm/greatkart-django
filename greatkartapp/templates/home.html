@@ -135,6 +135,16 @@ $(document).ready(function() {
 
 <!-- ========================= SECTION MAIN ========================= -->
 {% block content %}
+{% if messages %}
+                {% for message in messages %}
+                    <div id="message" class="container">
+                        <div {% if message.tags %} class="alert alert-{{ message.tags }} text-center"{% endif %} role="alert">
+                            {% if message.level == DEFAULT_MESSAGE_LEVELS.ERROR %}Error : {% endif %}
+                            {{ message }}
+                        </div>
+                    </div>
+            {% endfor %}
+        {% endif %}
 <section class="section-intro padding-y-sm">
 
 	<div class="container">
