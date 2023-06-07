@@ -3,7 +3,6 @@ from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.urls import reverse
 
 
-
 # Create your models here.
 class category_db(models.Model):
     category_name = models.CharField(max_length=100, unique=True)
@@ -122,32 +121,29 @@ class Cart(models.Model):
         return self.cart_id
 
 
-
-
 class VariationManager(models.Manager):
     def colors(self):
-        return super(VariationManager,self).filter(variation_category='color',is_active=True)
+        return super(VariationManager, self).filter(variation_category='color', is_active=True)
 
     def sizes(self):
-        return super(VariationManager,self).filter(variation_category='size',is_active=True)
+        return super(VariationManager, self).filter(variation_category='size', is_active=True)
 
-variation_category_choice=(
-    ('color','color'),
-    ('size','size'),
+
+variation_category_choice = (
+    ('color', 'color'),
+    ('size', 'size'),
 
 )
 
 
 class Variation(models.Model):
-    product=models.ForeignKey(product_db,on_delete=models.CASCADE)
-    variation_category=models.CharField(max_length=100,choices=variation_category_choice)
-    variation_value=models.CharField(max_length=100)
+    product = models.ForeignKey(product_db, on_delete=models.CASCADE)
+    variation_category = models.CharField(max_length=100, choices=variation_category_choice)
+    variation_value = models.CharField(max_length=100)
     is_active = models.BooleanField(default=True)
-    created_date=models.DateTimeField(auto_now=True)
+    created_date = models.DateTimeField(auto_now=True)
 
-
-    objects=VariationManager()
-
+    objects = VariationManager()
 
     class Meta:
         verbose_name = 'variation'
@@ -158,9 +154,9 @@ class Variation(models.Model):
 
 
 class cart_item(models.Model):
-    user = models.ForeignKey(Account,on_delete=models.CASCADE,null=True)
+    user = models.ForeignKey(Account, on_delete=models.CASCADE, null=True)
     product = models.ForeignKey(product_db, on_delete=models.CASCADE)
-    variations = models.ManyToManyField(Variation,blank=True)
+    variations = models.ManyToManyField(Variation, blank=True)
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE, null=True)
     quantity = models.IntegerField()
     is_active = models.BooleanField(default=True)
@@ -172,4 +168,69 @@ class cart_item(models.Model):
         return self.product
 
 
+class Payment(models.Model):
+    user = models.ForeignKey(Account, on_delete=models.CASCADE)
+    payment_id = models.CharField(max_length=100)
+    payment_method = models.CharField(max_length=100)
+    amount_paid = models.CharField(max_length=100)
+    status = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
 
+    def __str__(self):
+        return self.payment_id
+
+
+class Order(models.Model):
+    STATUS = (
+        ('New', 'New'),
+        ('Accepted', 'Accepted'),
+        ('Completed', 'Completed'),
+        ('Cancelled', 'Cancelled'),
+    )
+    user = models.ForeignKey(Account, on_delete=models.SET_NULL, null=True)
+    payment = models.ForeignKey(Payment, on_delete=models.SET_NULL, blank=True, null=True)
+    order_Number = models.CharField(max_length=20)
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+    phone = models.IntegerField()
+    email = models.EmailField(max_length=50)
+    address_line_1 = models.CharField(max_length=100)
+    address_line_2 = models.CharField(max_length=100, blank=True)
+    country = models.CharField(max_length=50)
+    state = models.CharField(max_length=50)
+    city = models.CharField(max_length=50)
+    district = models.CharField(max_length=50, null=True)
+    street = models.CharField(max_length=50)
+    postal_code = models.CharField(max_length=20)
+    order_note = models.CharField(max_length=100, blank=True)
+    order_total = models.FloatField()
+    tax = models.IntegerField()
+    status = models.CharField(max_length=10, choices=STATUS, default='New')
+    ip = models.CharField(blank=True, max_length=20)
+    is_ordered = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+    def full_name(self):
+        return f'{self.first_name} {self.last_name}'
+    def full_address(self):
+        return f'{self.address_line_1} {self.address_line_2}'
+    def __str__(self):
+        return self.first_name
+
+
+class OrderProduct(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE)
+    payment = models.ForeignKey(Payment, on_delete=models.SET_NULL, blank=True, null=True)
+    user = models.ForeignKey(Account, on_delete=models.CASCADE)
+    product = models.ForeignKey(product_db, on_delete=models.CASCADE)
+    variations = models.ManyToManyField(Variation, blank=True)
+    quantity = models.IntegerField()
+    product_price = models.FloatField(max_length=50)
+    ordered = models.BooleanField(max_length=50)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.product.product_name

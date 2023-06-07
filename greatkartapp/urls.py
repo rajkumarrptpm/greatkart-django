@@ -27,4 +27,11 @@ urlpatterns=[
     path('resetpassword_validate/<uidb64>/<token>', views.resetpassword_validate, name="resetpassword_validate"),
     path('checkout/', views.checkout, name="checkout"),
 
+
+
+    path('place_order/',views.place_order,name="place_order"),
+    path('payments/',views.payments,name="payments"),
+    path('order_completed/',views.order_completed,name="order_completed"),
+
+
 ]

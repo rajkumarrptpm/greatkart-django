@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import category_db, Account,product_db,Cart,cart_item,Variation
+from .models import category_db, Account,product_db,Cart,cart_item,Variation,Payment,OrderProduct,Order
 
 
 # Register your models here.
@@ -56,3 +56,34 @@ class VariationAdmin(admin.ModelAdmin):
     list_filter = ('product', 'variation_category', 'variation_value', 'is_active')
 
 admin.site.register(Variation,VariationAdmin)
+
+
+class OrderPoductInline(admin.TabularInline):
+    model=OrderProduct
+    readonly_fields = ['product','payment','user','quantity','product_price','ordered']
+    extra = 0
+
+class OrderAdmin(admin.ModelAdmin):
+    list_display = ('order_Number','full_name','phone','email','city','order_total','tax','status')
+    list_filter = ('status','is_ordered')
+    search_fields = ('order_Number','first_name','last_name','email',)
+    list_per_page = 20
+    inlines = [OrderPoductInline]
+
+
+admin.site.register(Order,OrderAdmin)
+
+
+
+
+admin.site.register(OrderProduct)
+
+
+
+admin.site.register(Payment)
+
+
+
+
+
+

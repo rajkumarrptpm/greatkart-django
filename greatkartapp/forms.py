@@ -1,5 +1,5 @@
 from django import forms
-from greatkartapp.models import Account
+from greatkartapp.models import Account,Order
 
 
 class RegistraionForm(forms.ModelForm):
@@ -38,4 +38,15 @@ class RegistraionForm(forms.ModelForm):
         for field in self.fields:
             self.fields[field].widget.attrs['class'] = 'form-control'
 
+
+
+
+
+# Order form
+
+
+class OrderForm(forms.ModelForm):
+    class Meta:
+        model=Order
+        fields = ['first_name','last_name','phone','email','address_line_1','address_line_2','country','state','city','district','street','postal_code','order_note']
 

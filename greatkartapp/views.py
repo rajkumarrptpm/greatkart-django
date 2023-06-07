@@ -1,22 +1,26 @@
 from django.contrib import messages, auth
-from django.shortcuts import render, get_object_or_404, redirect, HttpResponse
+from django.shortcuts import render, get_object_or_404, redirect
+from django.http import JsonResponse
 
-from greatkartapp.models import product_db, category_db, Cart, cart_item, Variation, Account
+from greatkartapp.models import product_db, category_db, Cart, cart_item, Variation, Account, Order, Payment,OrderProduct
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator  # paginator
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
-from greatkartapp.forms import RegistraionForm
+from greatkartapp.forms import RegistraionForm, OrderForm
 from django.contrib.auth.decorators import login_required
 
 # verification email
 from django.contrib.sites.shortcuts import get_current_site
 from django.template.loader import render_to_string
 from django.utils.encoding import force_bytes
-from django.utils.http import urlsafe_base64_encode,urlsafe_base64_decode
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import EmailMessage
 
+import datetime,json
+
 import requests
+
 
 # Create your views here.
 def home(request):
@@ -92,8 +96,6 @@ def add_cart(request, product_id):
                     product_variation.append(variation)
                 except:
                     pass
-
-
 
         is_cart_item_exists = cart_item.objects.filter(product=product, user=current_user).exists()
         if is_cart_item_exists:
@@ -203,7 +205,7 @@ def add_cart(request, product_id):
 def carts(request, total=0, quantity=0, cart_items=None):
     try:
         tax = 0
-        grand_total=0
+        grand_total = 0
         if request.user.is_authenticated:
             cart_items = cart_item.objects.filter(user=request.user, is_active=True)
         else:
@@ -287,21 +289,23 @@ def register(request):
             user.save()
 
             # user activation
-            current_site=get_current_site(request)
-            mail_subject='Please activate your Email'
-            message=render_to_string('accounts/account_verification_email.html',{
-                'user' : user,
-                'domain' : current_site,
-                'uid' : urlsafe_base64_encode(force_bytes(user.pk)),
-                'token' : default_token_generator.make_token(user),
+            current_site = get_current_site(request)
+            mail_subject = 'Please activate your Email'
+            message = render_to_string('accounts/account_verification_email.html', {
+                'user': user,
+                'domain': current_site,
+                'uid': urlsafe_base64_encode(force_bytes(user.pk)),
+                'token': default_token_generator.make_token(user),
 
             })
-            to_email=email
-            send_email=EmailMessage(mail_subject, message, to=[to_email])
+            to_email = email
+            send_email = EmailMessage(mail_subject, message, to=[to_email])
             send_email.send()
 
             # messages.success(request, 'Thank you for registering with us. We have sent you a verification email to your email address. Please verify it')
-            return redirect('/accounts/login/?command=verification&email='+email)
+            return redirect('/accounts/login/?command=verification&email=' + email)
+
+
     else:
         form = RegistraionForm()
     context = {
@@ -318,15 +322,15 @@ def login(request):
         user = auth.authenticate(email=email, password=password)
         if user is not None:
             try:
-                cart=Cart.objects.get(cart_id=_cart_id(request))
+                cart = Cart.objects.get(cart_id=_cart_id(request))
                 is_cart_item_exists = cart_item.objects.filter(cart=cart).exists()
                 if is_cart_item_exists:
-                    Cart_item=cart_item.objects.filter(cart=cart)
+                    Cart_item = cart_item.objects.filter(cart=cart)
 
                     # Getting the product variation by cart id
-                    product_variation=[]
+                    product_variation = []
                     for item in Cart_item:
-                        variation=item.variations.all()
+                        variation = item.variations.all()
                         product_variation.append(list(variation))
 
                     #     get the cart item from the user to access his product variation
@@ -343,14 +347,14 @@ def login(request):
                     # first check and take common values in product_variation and exi_var_list
                     for prdt in product_variation:
                         if prdt in exi_var_list:
-                            index=exi_var_list.index(prdt)
-                            item_id=id[index]
-                            item=cart_item.objects.get(id=item_id)
-                            item.quantity+=1
+                            index = exi_var_list.index(prdt)
+                            item_id = id[index]
+                            item = cart_item.objects.get(id=item_id)
+                            item.quantity += 1
                             item.user = user
                             item.save()
                         else:
-                            Cart_item=cart_item.objects.filter(cart=cart)
+                            Cart_item = cart_item.objects.filter(cart=cart)
                             for item in Cart_item:
                                 item.user = user
                                 item.save()
@@ -358,12 +362,11 @@ def login(request):
                 pass
 
             auth.login(request, user)
-            messages.success(request,'You are now logged in')
+            messages.success(request, 'You are now logged in')
             return redirect(home)
         else:
             messages.error(request, 'Invalid login credentials')
             return redirect(login)
-
 
     return render(request, "accounts/login.html")
 
@@ -383,68 +386,68 @@ def activate(request, uidb64, token):
         user = None
 
     if user is not None and default_token_generator.check_token(user, token):
-        user.is_active=True
+        user.is_active = True
         user.save()
-        messages.success(request,'Your account is activated.')
+        messages.success(request, 'Your account is activated.')
         return redirect('login')
     else:
-        messages.error(request,'Invalid activation link')
+        messages.error(request, 'Invalid activation link')
         return redirect('register')
 
 
 def dashboard(request):
-    return render(request,'accounts/dashboard.html')
-
+    return render(request, 'accounts/dashboard.html')
 
 
 def forgotPassword(request):
     if request.method == "POST":
         email = request.POST['email']
         if Account.objects.filter(email=email).exists():
-            user=Account.objects.get(email__iexact=email)
+            user = Account.objects.get(email__iexact=email)
 
             # user reset password via email
             current_site = get_current_site(request)
             mail_subject = 'Reset Your Password'
             message = render_to_string('accounts/reset_password_email.html', {
-                'user' : user,
-                'domain' : current_site,
-                'uid' : urlsafe_base64_encode(force_bytes(user.pk)),
-                'token' : default_token_generator.make_token(user),
+                'user': user,
+                'domain': current_site,
+                'uid': urlsafe_base64_encode(force_bytes(user.pk)),
+                'token': default_token_generator.make_token(user),
 
             })
             to_email = email
             send_email = EmailMessage(mail_subject, message, to=[to_email])
             send_email.send()
 
-            messages.success(request,"Password reset mail has been send to your email.")
+            messages.success(request, "Password reset mail has been send to your email.")
             return redirect(login)
         else:
-            messages.error(request,"Account does not exist")
+            messages.error(request, "Account does not exist")
             return redirect(forgotPassword)
-    return render(request,'accounts/forgot_password.html')
+    return render(request, 'accounts/forgot_password.html')
+
 
 def resetpassword(request):
     if request.method == "POST":
-        password =request.POST['password']
-        confirm_password =request.POST['confirm_password']
+        password = request.POST['password']
+        confirm_password = request.POST['confirm_password']
         if password == confirm_password:
-            uid=request.session.get('uid')
-            user=Account.objects.get(pk=uid)
+            uid = request.session.get('uid')
+            user = Account.objects.get(pk=uid)
             user.set_password(password)
             user.save()
-            messages.success(request,'Password reset sucessful.')
+            messages.success(request, 'Password reset sucessful.')
             return redirect(login)
 
 
         else:
-            messages.error(request,'Password does not match.')
+            messages.error(request, 'Password does not match.')
             return redirect(resetpassword)
     else:
-        return render(request,'accounts/reset_password.html')
+        return render(request, 'accounts/reset_password.html')
 
 
-def resetpassword_validate(request,  uidb64, token):
+def resetpassword_validate(request, uidb64, token):
     try:
         uid = urlsafe_base64_decode(uidb64).decode()
         user = Account._default_manager.get(pk=uid)
@@ -452,11 +455,11 @@ def resetpassword_validate(request,  uidb64, token):
         user = None
     if user is not None and default_token_generator.check_token(user, token):
         request.session['uid'] = uid
-        messages.success(request,'Please reset your password')
+        messages.success(request, 'Please reset your password')
         return redirect(resetpassword)
 
     else:
-        messages.error(request,'This link has been expired.')
+        messages.error(request, 'This link has been expired.')
         return redirect(login)
 
 
@@ -464,7 +467,7 @@ def resetpassword_validate(request,  uidb64, token):
 def checkout(request, total=0, quantity=0, cart_items=None):
     try:
         tax = 0
-        grand_total=0
+        grand_total = 0
         if request.user.is_authenticated:
             cart_items = cart_item.objects.filter(user=request.user, is_active=True)
         else:
@@ -486,4 +489,175 @@ def checkout(request, total=0, quantity=0, cart_items=None):
         'tax': tax,
         'grand_total': grand_total,
     }
-    return render(request,'store/checkout.html',context)
+    return render(request, 'store/checkout.html', context)
+
+
+def place_order(request, total=0, quantity=0):
+    current_user = request.user
+
+    # if the cart count is less than or equal to zero,then redirect back to shop
+    cart_items = cart_item.objects.filter(user=current_user)
+    cart_count = cart_items.count()
+    if cart_count <= 0:
+        return redirect(store)
+
+    tax = 0
+    grand_total = 0
+    for items in cart_items:
+        total += (items.product.price * items.quantity)
+        quantity += items.quantity
+    tax = (9 * total) / 100
+    grand_total = total + tax
+    grand_total = round(grand_total, 2)
+
+    if request.method == 'POST':
+        form = OrderForm(request.POST)
+        if form.is_valid():
+            # store all the billing information inside the order table
+            data = Order()
+            data.user = current_user
+            data.first_name = form.cleaned_data['first_name']
+            data.last_name = form.cleaned_data['last_name']
+            data.phone = form.cleaned_data['phone']
+            data.email = form.cleaned_data['email']
+            data.address_line_1 = form.cleaned_data['address_line_1']
+            data.address_line_2 = form.cleaned_data['address_line_2']
+            data.country = form.cleaned_data['country']
+            data.state = form.cleaned_data['state']
+            data.city = form.cleaned_data['city']
+            data.street = form.cleaned_data['street']
+            data.district = form.cleaned_data['district']
+            data.postal_code = form.cleaned_data['postal_code']
+            data.order_note = form.cleaned_data['order_note']
+            data.order_total = grand_total
+            data.tax = tax
+            data.ip = request.META.get('REMOTE_ADDR')
+            data.save()
+            #         generate order number
+
+            yr = int(datetime.date.today().strftime('%Y'))
+            dt = int(datetime.date.today().strftime('%d'))
+            mt = int(datetime.date.today().strftime('%m'))
+            d = datetime.date(yr, mt, dt)
+            current_date = d.strftime("%Y%m%d")
+            order_number = current_date + str(data.id)
+            data.order_Number = order_number
+            data.save()
+            order =Order.objects.get(user=current_user,is_ordered=False,order_Number=order_number)
+            context={
+                'order':order,
+                'cart_items':cart_items,
+                'total': total,
+                'grand_total': grand_total,
+                'tax': tax,
+            }
+            return render(request,'order/payments.html',context)
+        else:
+            return redirect(place_order)
+    else:
+        return redirect(checkout)
+
+
+def payments(request):
+    body=json.loads(request.body)
+    order=Order.objects.get(user=request.user,order_Number=body['orderID'])
+    # store transation details in payment model
+    payment=Payment(
+        user = request.user,
+        payment_id=body['transID'],
+        payment_method = body['payment_method'],
+        amount_paid = order.order_total,
+        status=body['status']
+    )
+    payment.save()
+    order.payment=payment
+    order.is_ordered=True
+    order.save()
+
+    # Move the cart items to product table
+    cart_items=cart_item.objects.filter(user=request.user)
+    for items in cart_items:
+        orderproduct=OrderProduct()
+        orderproduct.order_id=order.id
+        orderproduct.payment=payment
+        orderproduct.user_id=request.user.id
+        orderproduct.product_id=items.product_id
+        orderproduct.quantity=items.quantity
+        orderproduct.product_price=items.product.price
+        orderproduct.ordered=True
+
+        orderproduct.save()
+
+        Cart_items=cart_item.objects.get(id=items.id)
+
+        product_variation=Cart_items.variations.all()
+        orderproduct=OrderProduct.objects.get(id=orderproduct.id)
+        orderproduct.variations.set(product_variation)
+        orderproduct.save()
+
+
+    # reduce the quantity of sold products
+
+        product=product_db.objects.get(id=items.product_id)
+        product.stock-=items.quantity
+        product.save()
+
+
+
+    # clear the cart
+    cart_item.objects.filter(user=request.user).delete()
+
+
+
+    # Send the order recieved mail to customer
+    mail_subject = 'Thank you for Shopping with us'
+    message = render_to_string('order/order_recieved_email.html', {
+        'user': request.user,
+        'order':order,
+
+
+    })
+    to_email = request.user.email
+    send_email = EmailMessage(mail_subject, message, to=[to_email])
+    send_email.send()
+
+
+
+    # send order number and transaction id back to sendData method via json response
+    data={
+        'order_number': order.order_Number,
+        'transID' : payment.payment_id
+
+    }
+    return JsonResponse(data)
+
+
+
+
+
+
+
+def order_completed(request):
+    order_number= request.GET.get('order_number')
+    transID= request.GET.get('payment_id')
+    try:
+        order=Order.objects.get(order_Number=order_number,is_ordered=True)
+        ordered_products=OrderProduct.objects.filter(order_id=order.id)
+
+        sub_total=0
+
+        for i in ordered_products:
+            sub_total= i.product_price * i.quantity
+
+        payment=Payment.objects.get(payment_id=transID)
+        context={
+            'order':order,
+            'ordered_products':ordered_products,
+            'order_number':order.order_Number,
+            'transID':payment.payment_id,
+            'payment':payment,
+            'sub_total':sub_total,
+        }
+        return render(request,'order/order_completed.html',context)
+    except(Payment.DoesNotExist,Order.DoesNotExist):
+        return redirect(home)
