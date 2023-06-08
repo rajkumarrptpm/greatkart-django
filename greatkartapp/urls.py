@@ -34,4 +34,8 @@ urlpatterns=[
     path('order_completed/',views.order_completed,name="order_completed"),
 
 
+
+    path('submit_review/<int:product_id>/',views.submit_review,name="submit_review"),
+
+
 ]

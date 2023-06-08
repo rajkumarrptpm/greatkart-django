@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.urls import reverse
+from django.db.models import Avg,Count
 
 
 # Create your models here.
@@ -79,6 +80,9 @@ class Account(AbstractUser):
 
     objects = MyAccountManager()
 
+    def full_name(self):
+        return f'{self.first_name} {self.last_name}'
+
     def __str__(self):
         return self.email
 
@@ -111,6 +115,22 @@ class product_db(models.Model):
 
     def __str__(self):
         return self.product_name
+
+
+    def averagereview(self):
+        reviews=ReviewRating.objects.filter(product=self,status=True).aggregate(average=Avg('rating'))
+        avg=0
+        if reviews['average']is not None:
+            avg=float(reviews['average'])
+        return avg
+
+    def count_review(self):
+        reviews = ReviewRating.objects.filter(product=self, status=True).aggregate(count=Count('id'))
+        count = 0
+        if reviews['count'] is not None:
+            count =int(reviews['count'])
+        return count
+
 
 
 class Cart(models.Model):
@@ -234,3 +254,18 @@ class OrderProduct(models.Model):
 
     def __str__(self):
         return self.product.product_name
+
+
+class ReviewRating(models.Model):
+    product=models.ForeignKey(product_db,on_delete=models.CASCADE)
+    user=models.ForeignKey(Account,on_delete=models.CASCADE)
+    subject=models.CharField(max_length=100,blank=True)
+    review=models.TextField(max_length=500,blank=True)
+    rating=models.FloatField()
+    ip=models.CharField(max_length=20,blank=True)
+    status=models.BooleanField(default=True)
+    created_at=models.DateTimeField(auto_now_add=True)
+    updated_at=models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.subject

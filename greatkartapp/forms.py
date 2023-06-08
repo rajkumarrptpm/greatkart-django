@@ -1,5 +1,5 @@
 from django import forms
-from greatkartapp.models import Account,Order
+from greatkartapp.models import Account,Order,ReviewRating
 
 
 class RegistraionForm(forms.ModelForm):
@@ -50,3 +50,9 @@ class OrderForm(forms.ModelForm):
         model=Order
         fields = ['first_name','last_name','phone','email','address_line_1','address_line_2','country','state','city','district','street','postal_code','order_note']
 
+
+
+class ReviewForm(forms.ModelForm):
+    class Meta:
+        model=ReviewRating
+        fields=['subject','review','rating']

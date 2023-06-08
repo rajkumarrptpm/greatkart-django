@@ -2,11 +2,11 @@ from django.contrib import messages, auth
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
 
-from greatkartapp.models import product_db, category_db, Cart, cart_item, Variation, Account, Order, Payment,OrderProduct
+from greatkartapp.models import product_db, category_db, Cart, cart_item, Variation, Account, Order, Payment,OrderProduct,ReviewRating
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator  # paginator
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
-from greatkartapp.forms import RegistraionForm, OrderForm
+from greatkartapp.forms import RegistraionForm, OrderForm,ReviewForm
 from django.contrib.auth.decorators import login_required
 
 # verification email
@@ -63,10 +63,27 @@ def store(request, category_slug=None):
 def product_details(request, category_slug, product_slug):
     try:
         single_product = product_db.objects.get(category__slug=category_slug, slug=product_slug)
+        in_cart=cart_item.objects.filter(cart__cart_id=_cart_id(request),product=single_product).exists()
     except Exception as e:
         raise e
+
+    if request.user.is_authenticated:
+        try:
+            orderproduct=OrderProduct.objects.filter(user=request.user,product_id=single_product.id).exists()
+
+        except OrderProduct.DoesNotExist:
+            orderproduct=None
+    else:
+        orderproduct = None
+
+    # get the reviews
+    reviews=ReviewRating.objects.filter(product_id=single_product.id,status=True)
+
     context = {
         'single_product': single_product,
+        'in_cart':in_cart,
+        'orderproduct':orderproduct,
+        'reviews':reviews,
     }
     return render(request, 'store/product_details.html', context)
 
@@ -649,6 +666,7 @@ def order_completed(request):
         for i in ordered_products:
             sub_total= i.product_price * i.quantity
 
+
         payment=Payment.objects.get(payment_id=transID)
         context={
             'order':order,
@@ -661,3 +679,28 @@ def order_completed(request):
         return render(request,'order/order_completed.html',context)
     except(Payment.DoesNotExist,Order.DoesNotExist):
         return redirect(home)
+
+
+def submit_review(request,product_id):
+    url=request.META.get('HTTP_REFERER')
+    if request.method=="POST":
+        try:
+            review=ReviewRating.objects.get(user__id=request.user.id,product__id=product_id)
+            form=ReviewForm(request.POST,instance=review)
+            form.save()
+            messages.success(request,"Thank you! Your review has been updated.")
+            return redirect(url)
+        except ReviewRating.DoesNotExist:
+            form=ReviewForm(request.POST)
+            if form.is_valid():
+                data=ReviewRating()
+                data.subject=form.cleaned_data['subject']
+                data.rating=form.cleaned_data['rating']
+                data.review=form.cleaned_data['review']
+                data.ip=request.META.get('REMOTE_ADDR')
+                data.product_id=product_id
+                data.user_id=request.user.id
+                data.save()
+                messages.success(request, "Thank you! Your review has been submitted.")
+                return redirect(url)
+

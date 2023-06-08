@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import category_db, Account,product_db,Cart,cart_item,Variation,Payment,OrderProduct,Order
+from .models import category_db, Account,product_db,Cart,cart_item,Variation,Payment,OrderProduct,Order,ReviewRating
 
 
 # Register your models here.
@@ -81,6 +81,10 @@ admin.site.register(OrderProduct)
 
 
 admin.site.register(Payment)
+
+
+
+admin.site.register(ReviewRating)
 
 
 
