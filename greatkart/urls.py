@@ -24,7 +24,8 @@ import greatkartapp.urls
 from greatkart import settings
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path('admin/secure_login/', admin.site.urls),
+    path('admin/', include('admin_honeypot.urls', namespace='admin_honeypot')),
     path('',include(greatkartapp.urls)),
 ]
 urlpatterns+=staticfiles_urlpatterns()

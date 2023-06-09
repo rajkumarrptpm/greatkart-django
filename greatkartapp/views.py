@@ -1,14 +1,12 @@
 from django.contrib import messages, auth
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
-
-from greatkartapp.models import product_db, category_db, Cart, cart_item, Variation, Account, Order, Payment,OrderProduct,ReviewRating
+from greatkartapp.models import product_db, category_db, Cart, cart_item, Variation, Account, Order, Payment,OrderProduct, ReviewRating, UserProfile,ProductGallery
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator  # paginator
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
-from greatkartapp.forms import RegistraionForm, OrderForm,ReviewForm
+from greatkartapp.forms import RegistraionForm, OrderForm, ReviewForm, UserProfileForm, UserForm
 from django.contrib.auth.decorators import login_required
-
 # verification email
 from django.contrib.sites.shortcuts import get_current_site
 from django.template.loader import render_to_string
@@ -16,22 +14,19 @@ from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import EmailMessage
-
-import datetime,json
-
-import requests
-
+import datetime, json
 
 # Create your views here.
 def home(request):
-    products = product_db.objects.all().filter(
-        is_available=True)  # filter(is_available=True) is using the product is availabe or not
+    products = product_db.objects.all().filter(is_available=True).order_by('-created_date')# filter(is_available=True) is using the product is availabe or not
     category = category_db.objects.all()
+    for product in products:
+        reviews = ReviewRating.objects.filter(product_id=product.id, status=True)
     context = {
         'products': products,
         'category': category,
+        'reviews': reviews,
     }
-
     return render(request, "home.html", context)
 
 
@@ -52,7 +47,6 @@ def store(request, category_slug=None):
         page = request.GET.get('page')  # paginator 3
         page_products = paginator.get_page(page)  # paginator 4
         product_count = products.count()
-
     context = {
         'products': page_products,
         'product_count': product_count,
@@ -63,30 +57,30 @@ def store(request, category_slug=None):
 def product_details(request, category_slug, product_slug):
     try:
         single_product = product_db.objects.get(category__slug=category_slug, slug=product_slug)
-        in_cart=cart_item.objects.filter(cart__cart_id=_cart_id(request),product=single_product).exists()
+        in_cart = cart_item.objects.filter(cart__cart_id=_cart_id(request), product=single_product).exists()
     except Exception as e:
         raise e
 
     if request.user.is_authenticated:
         try:
-            orderproduct=OrderProduct.objects.filter(user=request.user,product_id=single_product.id).exists()
-
+            orderproduct = OrderProduct.objects.filter(user=request.user, product_id=single_product.id).exists()
         except OrderProduct.DoesNotExist:
-            orderproduct=None
+            orderproduct = None
     else:
         orderproduct = None
 
     # get the reviews
-    reviews=ReviewRating.objects.filter(product_id=single_product.id,status=True)
+    reviews = ReviewRating.objects.filter(product_id=single_product.id, status=True)
+    product_gallery=ProductGallery.objects.filter(product_id=single_product.id)
 
     context = {
         'single_product': single_product,
-        'in_cart':in_cart,
-        'orderproduct':orderproduct,
-        'reviews':reviews,
+        'in_cart': in_cart,
+        'orderproduct': orderproduct,
+        'reviews': reviews,
+        'product_gallery': product_gallery,
     }
     return render(request, 'store/product_details.html', context)
-
 
 def _cart_id(request):
     cart = request.session.session_key
@@ -94,22 +88,18 @@ def _cart_id(request):
         cart = request.session.create()
     return cart
 
-
 def add_cart(request, product_id):
     current_user = request.user
     product = product_db.objects.get(id=product_id)  # get the product
     # if the user is authenticated
     if current_user.is_authenticated:
         product_variation = []
-
         if request.method == "POST":
             for item in request.POST:
                 key = item
                 value = request.POST[key]
-
                 try:
-                    variation = Variation.objects.get(product=product, variation_category__iexact=key,
-                                                      variation_value__iexact=value)
+                    variation = Variation.objects.get(product=product, variation_category__iexact=key, variation_value__iexact=value)
                     product_variation.append(variation)
                 except:
                     pass
@@ -117,7 +107,6 @@ def add_cart(request, product_id):
         is_cart_item_exists = cart_item.objects.filter(product=product, user=current_user).exists()
         if is_cart_item_exists:
             Cart_item = cart_item.objects.filter(product=product, user=current_user)
-
             exi_var_list = []
             id = []
             for item in Cart_item:
@@ -132,11 +121,9 @@ def add_cart(request, product_id):
                 item = cart_item.objects.get(product=product, id=item_id)
                 item.quantity += 1
                 item.save()
-
             else:
                 # create new cart item
                 Cart_items = cart_item.objects.create(product=product, quantity=1, user=current_user)
-
                 if len(product_variation) > 0:
                     Cart_items.variations.clear()
                     Cart_items.variations.add(*product_variation)
@@ -146,7 +133,6 @@ def add_cart(request, product_id):
                 product=product,
                 quantity=1,
                 user=current_user,
-
             )
             if len(product_variation) > 0:
                 Cart_item.variations.clear()
@@ -160,14 +146,12 @@ def add_cart(request, product_id):
             for item in request.POST:
                 key = item
                 value = request.POST[key]
-
                 try:
                     variation = Variation.objects.get(product=product, variation_category__iexact=key,
                                                       variation_value__iexact=value)
                     product_variation.append(variation)
                 except:
                     pass
-
         try:
             cart = Cart.objects.get(cart_id=_cart_id(request))  # get the cart using the cart_id present in the session
         except Cart.DoesNotExist:
@@ -210,14 +194,12 @@ def add_cart(request, product_id):
                 product=product,
                 quantity=1,
                 cart=cart,
-
             )
             if len(product_variation) > 0:
                 Cart_item.variations.clear()
                 Cart_item.variations.add(*product_variation)
             Cart_item.save()
         return redirect(carts)
-
 
 def carts(request, total=0, quantity=0, cart_items=None):
     try:
@@ -246,13 +228,11 @@ def carts(request, total=0, quantity=0, cart_items=None):
     }
     return render(request, "store/cart.html", context)
 
-
 def remove_cart_items(request, product_id, cart_item_id):
     product = get_object_or_404(product_db, id=product_id)
     try:
         if request.user.is_authenticated:
             cart_items = cart_item.objects.get(product=product, user=request.user, id=cart_item_id)
-
         else:
             cart = Cart.objects.get(cart_id=_cart_id(request))
             cart_items = cart_item.objects.get(product=product, cart=cart, id=cart_item_id)
@@ -265,7 +245,6 @@ def remove_cart_items(request, product_id, cart_item_id):
         pass
     return redirect('carts')
 
-
 def remove_cart(request, product_id, cart_item_id):
     product = get_object_or_404(product_db, id=product_id)
     if request.user.is_authenticated:
@@ -275,7 +254,6 @@ def remove_cart(request, product_id, cart_item_id):
         cart_items = cart_item.objects.get(product=product, cart=cart, id=cart_item_id)
     cart_items.delete()
     return redirect('carts')
-
 
 def search(request):
     if 'keyword' in request.GET:
@@ -290,7 +268,6 @@ def search(request):
     }
     return render(request, "store/store.html", context)
 
-
 def register(request):
     if request.method == "POST":
         form = RegistraionForm(request.POST)
@@ -301,9 +278,14 @@ def register(request):
             password = form.cleaned_data['password']
             phone_number = form.cleaned_data['phone_number']
             username = email.split("@")[0]
-            user = Account.objects.create_user(first_name=first_name, last_name=last_name, email=email,
-                                               phone_number=phone_number, username=username, password=password)
+            user = Account.objects.create_user(first_name=first_name, last_name=last_name, email=email,phone_number=phone_number, username=username, password=password)
             user.save()
+
+            # Create user Profile
+            profile = UserProfile()
+            profile.user_id = user.id
+            profile.profile_picture = "default/default-user.png"
+            profile.save()
 
             # user activation
             current_site = get_current_site(request)
@@ -321,8 +303,6 @@ def register(request):
 
             # messages.success(request, 'Thank you for registering with us. We have sent you a verification email to your email address. Please verify it')
             return redirect('/accounts/login/?command=verification&email=' + email)
-
-
     else:
         form = RegistraionForm()
     context = {
@@ -330,12 +310,10 @@ def register(request):
     }
     return render(request, "accounts/register.html", context)
 
-
 def login(request):
     if request.method == "POST":
         email = request.POST['email']
         password = request.POST['password']
-
         user = auth.authenticate(email=email, password=password)
         if user is not None:
             try:
@@ -350,7 +328,7 @@ def login(request):
                         variation = item.variations.all()
                         product_variation.append(list(variation))
 
-                    #     get the cart item from the user to access his product variation
+                    # get the cart item from the user to access his product variation
                     Cart_item = cart_item.objects.filter(user=user)
                     exi_var_list = []
                     id = []
@@ -412,8 +390,19 @@ def activate(request, uidb64, token):
         return redirect('register')
 
 
+@login_required(login_url='login')
 def dashboard(request):
-    return render(request, 'accounts/dashboard.html')
+    orders = Order.objects.order_by('created_at').filter(user_id=request.user.id, is_ordered=True)
+    orders_count = orders.count()
+    userprofile=UserProfile.objects.get(user_id=request.user.id)
+
+    context = {
+        'orders_count': orders_count,
+        'userprofile': userprofile,
+
+    }
+
+    return render(request, 'accounts/dashboard.html', context)
 
 
 def forgotPassword(request):
@@ -560,15 +549,15 @@ def place_order(request, total=0, quantity=0):
             order_number = current_date + str(data.id)
             data.order_Number = order_number
             data.save()
-            order =Order.objects.get(user=current_user,is_ordered=False,order_Number=order_number)
-            context={
-                'order':order,
-                'cart_items':cart_items,
+            order = Order.objects.get(user=current_user, is_ordered=False, order_Number=order_number)
+            context = {
+                'order': order,
+                'cart_items': cart_items,
                 'total': total,
                 'grand_total': grand_total,
                 'tax': tax,
             }
-            return render(request,'order/payments.html',context)
+            return render(request, 'order/payments.html', context)
         else:
             return redirect(place_order)
     else:
@@ -576,131 +565,190 @@ def place_order(request, total=0, quantity=0):
 
 
 def payments(request):
-    body=json.loads(request.body)
-    order=Order.objects.get(user=request.user,order_Number=body['orderID'])
+    body = json.loads(request.body)
+    order = Order.objects.get(user=request.user, order_Number=body['orderID'])
     # store transation details in payment model
-    payment=Payment(
-        user = request.user,
+    payment = Payment(
+        user=request.user,
         payment_id=body['transID'],
-        payment_method = body['payment_method'],
-        amount_paid = order.order_total,
+        payment_method=body['payment_method'],
+        amount_paid=order.order_total,
         status=body['status']
     )
     payment.save()
-    order.payment=payment
-    order.is_ordered=True
+    order.payment = payment
+    order.is_ordered = True
     order.save()
 
     # Move the cart items to product table
-    cart_items=cart_item.objects.filter(user=request.user)
+    cart_items = cart_item.objects.filter(user=request.user)
     for items in cart_items:
-        orderproduct=OrderProduct()
-        orderproduct.order_id=order.id
-        orderproduct.payment=payment
-        orderproduct.user_id=request.user.id
-        orderproduct.product_id=items.product_id
-        orderproduct.quantity=items.quantity
-        orderproduct.product_price=items.product.price
-        orderproduct.ordered=True
+        orderproduct = OrderProduct()
+        orderproduct.order_id = order.id
+        orderproduct.payment = payment
+        orderproduct.user_id = request.user.id
+        orderproduct.product_id = items.product_id
+        orderproduct.quantity = items.quantity
+        orderproduct.product_price = items.product.price
+        orderproduct.ordered = True
 
         orderproduct.save()
 
-        Cart_items=cart_item.objects.get(id=items.id)
+        Cart_items = cart_item.objects.get(id=items.id)
 
-        product_variation=Cart_items.variations.all()
-        orderproduct=OrderProduct.objects.get(id=orderproduct.id)
+        product_variation = Cart_items.variations.all()
+        orderproduct = OrderProduct.objects.get(id=orderproduct.id)
         orderproduct.variations.set(product_variation)
         orderproduct.save()
 
+        # reduce the quantity of sold products
 
-    # reduce the quantity of sold products
-
-        product=product_db.objects.get(id=items.product_id)
-        product.stock-=items.quantity
+        product = product_db.objects.get(id=items.product_id)
+        product.stock -= items.quantity
         product.save()
-
-
 
     # clear the cart
     cart_item.objects.filter(user=request.user).delete()
-
-
 
     # Send the order recieved mail to customer
     mail_subject = 'Thank you for Shopping with us'
     message = render_to_string('order/order_recieved_email.html', {
         'user': request.user,
-        'order':order,
-
+        'order': order,
 
     })
     to_email = request.user.email
     send_email = EmailMessage(mail_subject, message, to=[to_email])
     send_email.send()
 
-
-
     # send order number and transaction id back to sendData method via json response
-    data={
+    data = {
         'order_number': order.order_Number,
-        'transID' : payment.payment_id
+        'transID': payment.payment_id
 
     }
     return JsonResponse(data)
 
 
-
-
-
-
-
 def order_completed(request):
-    order_number= request.GET.get('order_number')
-    transID= request.GET.get('payment_id')
+    order_number = request.GET.get('order_number')
+    transID = request.GET.get('payment_id')
     try:
-        order=Order.objects.get(order_Number=order_number,is_ordered=True)
-        ordered_products=OrderProduct.objects.filter(order_id=order.id)
+        order = Order.objects.get(order_Number=order_number, is_ordered=True)
+        ordered_products = OrderProduct.objects.filter(order_id=order.id)
 
-        sub_total=0
+        sub_total = 0
 
         for i in ordered_products:
-            sub_total= i.product_price * i.quantity
+            sub_total = i.product_price * i.quantity
 
-
-        payment=Payment.objects.get(payment_id=transID)
-        context={
-            'order':order,
-            'ordered_products':ordered_products,
-            'order_number':order.order_Number,
-            'transID':payment.payment_id,
-            'payment':payment,
-            'sub_total':sub_total,
+        payment = Payment.objects.get(payment_id=transID)
+        context = {
+            'order': order,
+            'ordered_products': ordered_products,
+            'order_number': order.order_Number,
+            'transID': payment.payment_id,
+            'payment': payment,
+            'sub_total': sub_total,
         }
-        return render(request,'order/order_completed.html',context)
-    except(Payment.DoesNotExist,Order.DoesNotExist):
+        return render(request, 'order/order_completed.html', context)
+    except(Payment.DoesNotExist, Order.DoesNotExist):
         return redirect(home)
 
 
-def submit_review(request,product_id):
-    url=request.META.get('HTTP_REFERER')
-    if request.method=="POST":
+@login_required(login_url='/login/')
+def submit_review(request, product_id):
+    url = request.META.get('HTTP_REFERER')
+    if request.method == "POST":
         try:
-            review=ReviewRating.objects.get(user__id=request.user.id,product__id=product_id)
-            form=ReviewForm(request.POST,instance=review)
+            review = ReviewRating.objects.get(user__id=request.user.id, product__id=product_id)
+            form = ReviewForm(request.POST, instance=review)
             form.save()
-            messages.success(request,"Thank you! Your review has been updated.")
+            messages.success(request, "Thank you! Your review has been updated.")
             return redirect(url)
         except ReviewRating.DoesNotExist:
-            form=ReviewForm(request.POST)
+            form = ReviewForm(request.POST)
             if form.is_valid():
-                data=ReviewRating()
-                data.subject=form.cleaned_data['subject']
-                data.rating=form.cleaned_data['rating']
-                data.review=form.cleaned_data['review']
-                data.ip=request.META.get('REMOTE_ADDR')
-                data.product_id=product_id
-                data.user_id=request.user.id
+                data = ReviewRating()
+                data.subject = form.cleaned_data['subject']
+                data.rating = form.cleaned_data['rating']
+                data.review = form.cleaned_data['review']
+                data.ip = request.META.get('REMOTE_ADDR')
+                data.product_id = product_id
+                data.user_id = request.user.id
                 data.save()
                 messages.success(request, "Thank you! Your review has been submitted.")
                 return redirect(url)
 
+@login_required(login_url='login')
+def my_orders(request):
+    orders = Order.objects.filter(user=request.user, is_ordered=True).order_by('-created_at')
+    context = {
+        'orders': orders
+    }
+    return render(request, 'accounts/my_orders.html', context)
+
+
+@login_required(login_url='login')
+def edit_profile(request):
+    userprofile = get_object_or_404(UserProfile, user=request.user)
+    if request.method == 'POST':
+        user_form = UserForm(request.POST, instance=request.user)
+        profile_form = UserProfileForm(request.POST, request.FILES, instance=userprofile)
+        if user_form.is_valid() and profile_form.is_valid():
+            user_form.save()
+            profile_form.save()
+            messages.success(request, "Your profile has been updated")
+            return redirect(edit_profile)
+    else:
+        user_form = UserForm(instance=request.user)
+        profile_form = UserProfileForm(instance=userprofile)
+    context = {
+        'user_form': user_form,
+        'profile_form': profile_form,
+        'userprofile': userprofile,
+    }
+    return render(request, 'accounts/edit_profile.html', context)
+
+
+@login_required(login_url='login')
+def change_password(request):
+    if request.method == "POST":
+        current_password = request.POST['current_password']
+        new_password = request.POST['new_password']
+        confirm_password = request.POST['confirm_password']
+        user = Account.objects.get(username__exact=request.user.username)
+        if new_password == confirm_password:
+            success = user.check_password(current_password)
+            if success:
+                user.set_password(new_password)
+                user.save()
+                messages.success(request, "Password updated successfully")
+                return redirect(change_password)
+            else:
+                messages.error(request, "Please enter valid current  password")
+                return redirect(change_password)
+        else:
+            messages.error(request, "Password does not Match")
+            return redirect(change_password)
+    return render(request, 'accounts/change_password.html')
+
+
+
+@login_required(login_url='login')
+def order_details(request,order_id):
+    order_detail=OrderProduct.objects.filter(order__order_Number=order_id)
+    order=Order.objects.get(order_Number=order_id)
+
+    subtotal= 0
+    tax=0
+    for i in order_detail:
+        subtotal+= i.product_price * i.quantity
+        tax=(9*subtotal)/100
+    context={
+        'order_detail':order_detail,
+        'order':order,
+        'subtotal':subtotal,
+        'tax':tax,
+    }
+    return render(request,"accounts/order_details.html",context)

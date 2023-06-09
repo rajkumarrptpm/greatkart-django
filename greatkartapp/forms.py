@@ -1,5 +1,5 @@
 from django import forms
-from greatkartapp.models import Account,Order,ReviewRating
+from greatkartapp.models import Account,Order,ReviewRating,UserProfile
 
 
 class RegistraionForm(forms.ModelForm):
@@ -56,3 +56,23 @@ class ReviewForm(forms.ModelForm):
     class Meta:
         model=ReviewRating
         fields=['subject','review','rating']
+
+class UserForm(forms.ModelForm):
+    class Meta:
+        model=Account
+        fields=('first_name','last_name','phone_number')
+
+    def __init__(self, *args, **kwargs):
+        super(UserForm, self).__init__(*args, **kwargs)
+        for field in self.fields:
+            self.fields[field].widget.attrs['class'] = 'form-control'
+
+class  UserProfileForm(forms.ModelForm):
+    profile_picture=forms.ImageField(required=False,error_messages={'Invalid':("Image File Only")}, widget=forms.FileInput)
+    class Meta:
+        model=UserProfile
+        fields=('address_line_1','address_line_2','city','state','country','profile_picture','street','district','postal_code')
+    def __init__(self, *args, **kwargs):
+        super(UserProfileForm, self).__init__(*args, **kwargs)
+        for field in self.fields:
+            self.fields[field].widget.attrs['class'] = 'form-control'

@@ -180,6 +180,16 @@ $(document).ready(function() {
 						<figcaption class="info-wrap">
 							<a href="{{ prdt.get_url }}" class="title">{{ prdt.product_name }}</a>
 							<div class="price mt-1">${{ prdt.price }}</div> <!-- price-wrap.// -->
+							<div class="rating-star">
+								<span>
+									<i class="fa fa-star{% if prdt.averagereview < 0.5 %}-o{% elif prdt.averagereview >= 0.5 and prdt.averagereview < 1 %}-half-o{% endif %}" aria-hidden="true"></i>
+									<i class="fa fa-star{% if prdt.averagereview < 1.5 %}-o{% elif prdt.averagereview >= 1.5 and prdt.averagereview < 2 %}-half-o{% endif %}" aria-hidden="true"></i>
+									<i class="fa fa-star{% if prdt.averagereview < 2.5 %}-o{% elif prdt.averagereview >= 2.5 and prdt.averagereview < 3 %}-half-o{% endif %}" aria-hidden="true"></i>
+									<i class="fa fa-star{% if prdt.averagereview < 3.5 %}-o{% elif prdt.averagereview >= 3.5 and prdt.averagereview < 4 %}-half-o{% endif %}" aria-hidden="true"></i>
+									<i class="fa fa-star{% if prdt.averagereview < 4.5 %}-o{% elif prdt.averagereview >= 4.5 and prdt.averagereview < 5 %}-half-o{% endif %}" aria-hidden="true"></i>
+									<span>{{ prdt.count_review }} reviews</span>
+								</span>
+							</div>
 						</figcaption>
 					</figure>
 				</div>
@@ -214,6 +224,15 @@ $(document).ready(function() {
 		</section>
 	</div><!-- //container -->
 </footer>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+<script>
+	$(document).ready(function(){
+		$('.thumb a').click(function(e){
+			e.preventDefault();
+			$('.mainImage img').attr('src',$(this).attr("href"));
+		})
+	})
+</script>
 <!-- ========================= FOOTER END // ========================= -->
 
 </body>

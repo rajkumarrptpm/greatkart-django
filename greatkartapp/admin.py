@@ -1,6 +1,8 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import category_db, Account,product_db,Cart,cart_item,Variation,Payment,OrderProduct,Order,ReviewRating
+from django.utils.html import format_html
+import admin_thumbnails
+from .models import category_db, Account,product_db,Cart,cart_item,Variation,Payment,OrderProduct,Order,ReviewRating,UserProfile, ProductGallery
 
 
 # Register your models here.
@@ -26,12 +28,15 @@ class AccountAdmin(UserAdmin):
 
 admin.site.register(Account, AccountAdmin)
 
-
-# Register products to admin
+@admin_thumbnails.thumbnail('image')
+class ProductGalleryInline(admin.TabularInline):
+    model=ProductGallery
+    extra=1
 
 class ProductAdmin(admin.ModelAdmin):
     list_display = ('product_name','price','stock','category','updated_date','is_available')
     prepopulated_fields = {'slug':('product_name',)}
+    inlines = [ProductGalleryInline]
 
 admin.site.register(product_db,ProductAdmin)
 
@@ -79,12 +84,25 @@ admin.site.register(Order,OrderAdmin)
 admin.site.register(OrderProduct)
 
 
+class UserProfileAdmin(admin.ModelAdmin):
+    def thumbnail(self,object):
+        return format_html('<img src="{}" width="40" height="40"  style=" border-radius:50%;">'.format(object.profile_picture.url))
+    thumbnail.short_description='Profile Picture'
+    list_display = ('thumbnail','user','city','state','country',)
+
+admin.site.register(UserProfile,UserProfileAdmin)
+
+
 
 admin.site.register(Payment)
 
 
 
 admin.site.register(ReviewRating)
+
+
+
+admin.site.register(ProductGallery)
 
 
 

@@ -36,6 +36,10 @@ urlpatterns=[
 
 
     path('submit_review/<int:product_id>/',views.submit_review,name="submit_review"),
+    path('my_orders/',views.my_orders,name="my_orders"),
+    path('edit_profile/',views.edit_profile,name="edit_profile"),
+    path('change_password/',views.change_password,name="change_password"),
+    path('order_details/<int:order_id>/',views.order_details,name="order_details"),
 
 
 ]
